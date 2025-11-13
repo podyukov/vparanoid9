@@ -144,4 +144,122 @@ kubernetes       ClusterIP      10.96.0.1        <none>          443/TCP        
 redis            ClusterIP      10.96.61.3       <none>          6379/TCP         4m23s
 service-devops   LoadBalancer   10.102.117.148   10.122.202.66   8000:32066/TCP   3m20s
 ```
-- 
+- Обновляю приложение и поды на новую версию - пересобираю образ с тегом v5 и делаю его доступным в minicube
+```
+ilya@erth ~/Р/vparanoid9 (main)> minikube image build -t flask:v5 flask_redis/
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 238B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/python:latest
+#2 DONE 2.2s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/5] FROM docker.io/library/python:latest@sha256:e6b1f7011589cc717a5112e6fdb56217e9e734a57e4cb50216e912b068b392a8
+#4 DONE 0.0s
+
+#5 [internal] load build context
+#5 transferring context: 449B done
+#5 DONE 0.0s
+
+#6 [2/5] WORKDIR /code
+#6 CACHED
+
+#7 [3/5] COPY requirements.txt requirements.txt
+#7 CACHED
+
+#8 [4/5] RUN pip install -r requirements.txt
+#8 CACHED
+
+#9 [5/5] COPY app.py .
+#9 DONE 0.0s
+
+#10 exporting to image
+#10 exporting layers
+#10 exporting layers 0.9s done
+#10 writing image sha256:65fbca5b70d731cedcdab0bbcbd317dc0a0cd104c68e740e6328d56a4b966b53 done
+#10 naming to docker.io/library/flask:v5 done
+#10 DONE 0.9s
+```
+```
+ilya@erth ~/Р/vparanoid9 (main)> kubectl set image deployments/flask-app flask=flask:v5
+deployment.apps/flask-app image updated
+```
+```
+ilya@erth ~/Р/vparanoid9 (main)> kubectl get pods
+NAME                         READY   STATUS    RESTARTS   AGE
+flask-app-56959d94d9-kztlx   1/1     Running   0          24s
+flask-app-56959d94d9-n4hps   1/1     Running   0          24s
+flask-app-56959d94d9-nbc9x   1/1     Running   0          24s
+flask-app-56959d94d9-thdlg   1/1     Running   0          24s
+flask-app-56959d94d9-tsvsx   1/1     Running   0          24s
+redis-59bd98c78b-xscfv       1/1     Running   0          11m
+```
+```
+ilya@erth ~/Р/vparanoid9 (main)> kubectl describe deployment flask-app 
+Name:                   flask-app
+Namespace:              default
+CreationTimestamp:      Thu, 13 Nov 2025 10:06:58 +0500
+Labels:                 app=flask-app
+Annotations:            deployment.kubernetes.io/revision: 2
+Selector:               app=flask-app,svc=front
+Replicas:               5 desired | 5 updated | 5 total | 5 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  app=flask-app
+           svc=front
+  Containers:
+   flask:
+    Image:      flask:v5
+    Port:       5000/TCP
+    Host Port:  0/TCP
+    Limits:
+      memory:      256Mi
+    Environment:   <none>
+    Mounts:        <none>
+  Volumes:         <none>
+  Node-Selectors:  <none>
+  Tolerations:     <none>
+Conditions:
+  Type           Status  Reason
+  ----           ------  ------
+  Available      True    MinimumReplicasAvailable
+  Progressing    True    NewReplicaSetAvailable
+OldReplicaSets:  flask-app-79b8d5d949 (0/0 replicas created)
+NewReplicaSet:   flask-app-56959d94d9 (5/5 replicas created)
+Events:
+  Type    Reason             Age    From                   Message
+  ----    ------             ----   ----                   -------
+  Normal  ScalingReplicaSet  8m42s  deployment-controller  Scaled up replica set flask-app-79b8d5d949 from 0 to 5
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled up replica set flask-app-56959d94d9 from 0 to 2
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled down replica set flask-app-79b8d5d949 from 5 to 4
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled up replica set flask-app-56959d94d9 from 2 to 3
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled down replica set flask-app-79b8d5d949 from 4 to 3
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled up replica set flask-app-56959d94d9 from 3 to 4
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled down replica set flask-app-79b8d5d949 from 3 to 2
+  Normal  ScalingReplicaSet  57s    deployment-controller  Scaled up replica set flask-app-56959d94d9 from 4 to 5
+  Normal  ScalingReplicaSet  56s    deployment-controller  Scaled down replica set flask-app-79b8d5d949 from 2 to 1
+  Normal  ScalingReplicaSet  55s    deployment-controller  (combined from similar events): Scaled down replica set flask-app-79b8d5d949 from 1 to 0
+```
+```
+ilya@erth ~/Р/vparanoid9 (main)> kubectl rollout status deployment flask-app 
+deployment "flask-app" successfully rolled out
+```
+- Пробрасываю порты для запуска
+```
+ilya@erth ~/Р/vparanoid9 (main)> kubectl port-forward service/service-devops 8000:8000
+Forwarding from 127.0.0.1:8000 -> 5000
+Forwarding from [::1]:8000 -> 5000
+Handling connection for 8000
+Handling connection for 8000
+```
+- Смотрю результат
+<img width="915" height="108" alt="изображение" src="https://github.com/user-attachments/assets/b265d8d8-e099-486f-933f-b076c230387d" />
+  
